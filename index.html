@@ -4,71 +4,163 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-
-    <script src="https://cdn.bootcdn.net/ajax/libs/vue/2.7.9/vue.min.js"></script>
-
+    <title>计时器</title>
     <style>
-        p {
-            background-color: #f8f8f8;
+        * {
+            margin: 0;
+            padding: 0;
+            line-height: 1;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .box {
+            display: flex;
+        }
+
+        .info {
+            cursor: pointer;
+        }
+
+        #reset {
+            position: fixed;
+            top: 1em;
+            right: 1em;
+            color: #ccc;
+            letter-spacing: 3px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 18px;
+        }
+
+        /* 当屏幕宽度小于等于768px时 */
+        @media screen and (max-width: 768px) {
+            body {
+                font-size: 18px;
+                justify-content: flex-start;
+            }
+
+            .box {
+                flex-direction: column;
+                padding-left: 20px;
+            }
+
+            .info {
+                padding-bottom: 12px;
+            }
+
+            #countdown {
+                font-size: 24px;
+                line-height: 1.2;
+            }
         }
     </style>
 </head>
 
 <body>
-    <div id="app">
-        <!-- <h1>五局三胜</h1> -->
-        <h2>选项：</h2>
-        <ol>
-            <li v-for="(item,index) in list" :key="index">
-                <span>{{item}}</span>
-                <button @click="del(index)">删除</button>
-            </li>
-            <li>
-                <input type="text" v-model.trim="addValue" @keyup.enter="add()" />
-                <button @click="add()">添加</button>
-                <button @click="clear()">清空</button>
-            </li>
-        </ol>
-        <button @click="generateResults()">生成随机结果</button>
-        <h2>结果：{{result}}</h2>
+    <div class="box">
+        <div class="info" onclick="setCurrentTime()">
+            距离 <span id="target-time"></span>：
+        </div>
+        <div id="countdown">00 天 00 小时 00 分钟 00 秒</div>
     </div>
+    <div id="reset" onclick="onReset()">重置</div>
 
+
+
+    <!-- 适配深色模式 -->
     <script>
-        const app = new Vue({
-            el: "#app",
-            data: {
-                addValue: "",
-                list: [],
-                result: ""
-            },
-            methods: {
-                add() {
-                    this.list.push(this.addValue);
-                    this.addValue = "";
-                },
-                del(index) {
-                    this.list.splice(index, 1);
-                },
-                clear() {
-                    this.list = [];
-                },
-                generateResults() {
-                    const { list } = this;
-                    const { length } = list;
-                    if (length < 2) {
-                        alert("选项至少得有两个！");
-                        return;
-                    }
-                    this.result = list[this.getRandomIntInclusive(0, length - 1)];
-                },
-                getRandomIntInclusive(min, max) {
-                    min = Math.ceil(min);
-                    max = Math.floor(max);
-                    return Math.floor(Math.random() * (max - min + 1)) + min; //含最大值，含最小值
-                }
+        const bodyEl = document.body;
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            // 深色模式
+            bodyEl.style.backgroundColor = '#121212';
+            bodyEl.style.color = '#fff';
+        } else {
+            // 亮色模式
+            bodyEl.style.backgroundColor = '#fff';
+            bodyEl.style.color = '#000';
+        }
+    </script>
+
+    <!-- 工具函数 -->
+    <script>
+        // 数字显示矫正
+        function addLeadingZero(num) {
+            if (num < 10) return '0' + num;
+            else return '' + num;
+        }
+        // 获取当前时间
+        function getCurrentDate() {
+            let now = new Date();
+            let year = addLeadingZero(now.getFullYear());
+            let month = addLeadingZero(now.getMonth() + 1);
+            let day = addLeadingZero(now.getDate());
+            let hours = addLeadingZero(now.getHours());
+            let minutes = addLeadingZero(now.getMinutes());
+            let seconds = addLeadingZero(now.getSeconds());
+
+            return { year, month, day, hours, minutes, seconds }
+        }
+    </script>
+
+    <!-- 业务函数-点击 -->
+    <script>
+        // 重置
+        function onReset() {
+            if (confirm('确认重置为默认值吗？')) {
+                localStorage.removeItem('target-time');
+                location.reload();
             }
-        });
+        }
+        // 设置为当前时间
+        function setCurrentTime() {
+            const { year, month, day, hours, minutes, seconds } = getCurrentDate()
+            const currentTime = `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+
+            let time = window.prompt('目标时间：', currentTime) || targetTime;
+            // 更新目标时间和时间戳
+            targetTime = time;
+            targetTimeEl.innerText = time;
+            targetTimeStamp = new Date(time).getTime();
+            localStorage.setItem('target-time', time);
+        }
+    </script>
+
+    <!-- 业务函数-定时器 -->
+    <script>
+        const targetTimeEl = document.getElementById('target-time');
+        const countdownEl = document.getElementById('countdown');
+
+        // 设置目标日期和时间
+        let targetTime = localStorage.getItem('target-time');
+        if (!targetTime) targetTime = '2025/10/20 21:21:58';
+        targetTimeEl.innerText = targetTime;
+        // 目标时间时间戳
+        let targetTimeStamp = new Date(targetTime).getTime();
+
+        // 开始计算
+        setInterval(function () {
+            const nowTimeStamp = new Date().getTime();
+            const TotalSeconds = Math.floor(Math.abs(targetTimeStamp - nowTimeStamp) / 1000);
+
+            // 天
+            const days = addLeadingZero(Math.floor(TotalSeconds / (24 * 60 * 60)));
+            // 小时
+            const hours = addLeadingZero(Math.floor((TotalSeconds % (24 * 60 * 60)) / (60 * 60)));
+            // 分钟
+            const minutes = addLeadingZero(Math.floor((TotalSeconds % (60 * 60)) / 60));
+            // 秒
+            const seconds = addLeadingZero(TotalSeconds % 60);
+
+            countdownEl.innerText = `${days} 天 ${hours} 小时 ${minutes} 分钟 ${seconds} 秒`;
+        }, 1000);
     </script>
 </body>
 
